@@ -1,0 +1,7 @@
+
+Example:
+	usclk: usclk {
+		compatible = "clk-userspace";
+		clocks = <&foo 15>, <&bar>;
+		clock-count = <2>;
+	};

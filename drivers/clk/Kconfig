@@ -81,6 +81,15 @@ config COMMON_CLK_AXI_CLKGEN
 	  Support for the Analog Devices axi-clkgen pcore clock generator for Xilinx
 	  FPGAs. It is commonly used in Analog Devices' reference designs.
 
+config COMMON_CLK_USERSPACE
+	bool "Userspace Clock Controls"
+	depends on OF
+	depends on SYSFS
+	help
+	---help---
+	  Expose clock controls through sysfs to userspace. Clocks are selected
+	  through the device tree and the controls are exposed in
+	  /sys/class/clk.
 endmenu
 
 source "drivers/clk/mvebu/Kconfig"
