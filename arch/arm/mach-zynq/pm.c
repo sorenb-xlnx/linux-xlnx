@@ -42,6 +42,26 @@ static void __iomem *ddrc_base;
 #ifdef CONFIG_SUSPEND
 static void __iomem *ocm_base;
 
+#ifdef DEBUG
+static void __iomem *gic_base;
+
+static void __iomem *zynq_pm_map_gic(void)
+{
+	struct device_node *np;
+	void __iomem *base = NULL;
+
+	np = of_find_compatible_node(NULL, NULL, "arm,cortex-a9-gic");
+	if (np) {
+		base = of_iomap(np, 1);
+		of_node_put(np);
+	} else {
+		pr_warn("%s: GIC node not found\n", __func__);
+	}
+
+	return base;
+}
+#endif	/* DEBUG */
+
 static int zynq_pm_prepare_late(void)
 {
 	return zynq_clk_suspend_early();
@@ -86,6 +106,11 @@ static int zynq_pm_suspend(unsigned long arg)
 		WARN_ONCE(1, "DRAM self-refresh not available\n");
 		cpu_do_idle();
 	}
+
+#ifdef DEBUG
+	/* print IRQ ID that woke us up */
+	pr_info("%s: wake-irq: %u\n", __func__, readl(gic_base + 0x18) & 0x3ff);
+#endif
 
 	/* disable DDRC self-refresh mode */
 	if (do_ddrpll_bypass) {
@@ -195,6 +220,9 @@ static void zynq_pm_suspend_init(void)
 			(unsigned long)(ocm_base) + zynq_sys_suspend_sz);
 	}
 
+#ifdef DEBUG
+	gic_base = zynq_pm_map_gic();
+#endif
 	suspend_set_ops(&zynq_pm_ops);
 }
 #else	/* CONFIG_SUSPEND */
