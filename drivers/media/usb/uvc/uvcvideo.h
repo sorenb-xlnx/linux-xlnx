@@ -551,6 +551,12 @@ struct uvc_streaming {
 
 	struct uvc_urb uvc_urb[UVC_URBS];
 	unsigned int urb_size;
+	atomic_t urbs_active;
+	struct uvc_urbs_active_stats {
+		unsigned int qty;
+		unsigned int total;
+		unsigned int max;
+	} urbs_active_stats;
 
 	__u32 sequence;
 	__u8 last_fid;
