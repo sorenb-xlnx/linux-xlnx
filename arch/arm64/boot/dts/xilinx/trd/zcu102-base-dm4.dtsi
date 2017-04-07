@@ -1,0 +1,6 @@
+/include/ "system-conf-override.dtsi"
+
+/* Define configuration */
+
+/* Includes */
+#include "rpu1.dtsi"

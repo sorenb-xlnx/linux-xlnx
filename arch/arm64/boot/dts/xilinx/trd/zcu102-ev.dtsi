@@ -1,0 +1,12 @@
+/include/ "trd/system-conf-override.dtsi"
+
+/* Define configuration */
+#define CONFIG_USE_CSI
+#define CONFIG_USE_TPG
+#define CONFIG_USE_HDMI_RX
+#define CONFIG_USE_HDMI_TX
+#define CONFIG_USE_SDSOC
+
+/* Includes */
+#include "pl.dtsi"
+#include "li-imx274mipi-fmc.dtsi"

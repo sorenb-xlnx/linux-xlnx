@@ -10,6 +10,7 @@ dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu100-revB-loopback.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu102.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu102-revB.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu106.dtb
+dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu102-base-trd.dtb
 
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)

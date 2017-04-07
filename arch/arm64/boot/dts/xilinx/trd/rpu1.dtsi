@@ -1,0 +1,29 @@
+/ {
+	/*
+	 * Reserve 16MB of DDR memory for RPU1 application toward the top of the
+	 * 1GB address range (DDR_LOW).
+	 */
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		rpu1_reserved: rpu1_reserved@3f000000 {
+			no-map;
+			reg = <0x0 0x3f000000 0x0 0x1000000>;
+		};
+	};
+
+	amba {
+		rpu1_rproc: rpu1_rproc@0 {
+			compatible = "xlnx,zynqmp-r5-remoteproc-1.0";
+			reg = <0x0 0xff340000 0x0 0x100>,
+			      <0x0 0xff9a0000 0x0 0x400>,
+			      <0x0 0xff5e0000 0x0 0x400>;
+			reg-names = "ipi", "rpu_base", "apb_base";
+			core_conf = "split1";
+			interrupt-parent = <&gic>;
+			interrupts = <0 29 4>;
+		} ;
+	};
+};
+

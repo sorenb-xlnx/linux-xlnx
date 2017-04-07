@@ -1,0 +1,66 @@
+#include <dt-bindings/media/xilinx-vip.h>
+
+&amba {
+	vtc_1: vtc@a3c20000 {
+		compatible = "xlnx,v-tc-6.1";
+		reg = <0x0 0xa3c20000 0x0 0x10000>;
+		clocks = <&si5324 0>;
+		xlnx,generator;
+	};
+
+	tpg_1: tpg@b0030000 {
+		compatible = "xlnx,v-tpg-7.0";
+		reg = <0x0 0xb0030000 0x0 0x10000>;
+		clocks = <&vid_stream_clk>;
+		xlnx,vtc = <&vtc_1>;
+
+		reset-gpios = <&gpio 79 1>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+
+				xlnx,video-format = <XVIP_VF_YUV_422>;
+				xlnx,video-width = <8>;
+
+				tpg_out: endpoint {
+					remote-endpoint = <&vcap_tpg_in>;
+				};
+			};
+		};
+	};
+
+	fb_wr_tpg: fb_wr@b0050000 {
+		compatible = "xlnx,axi-frmbuf-wr-1.00.a";
+		reg = <0x0 0xb0050000 0x0 0x10000>;
+		#dma-cells = <1>;
+		interrupt-parent = <&gic>;
+		interrupts = <0 89 4>;
+		clocks = <&vid_stream_clk>;
+		clock-names = "axis";
+		xlnx,vid-fmt = "yuyv";
+		reset-gpios = <&gpio 81 1>;
+        };
+
+	vcap_tpg {
+		compatible = "xlnx,video";
+		dmas = <&fb_wr_tpg 0>;
+		dma-names = "port0";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				direction = "input";
+				vcap_tpg_in: endpoint {
+					remote-endpoint = <&tpg_out>;
+				};
+			};
+		};
+	};
+};

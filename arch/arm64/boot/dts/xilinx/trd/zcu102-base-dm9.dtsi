@@ -1,0 +1,12 @@
+/include/ "system-conf-override.dtsi"
+
+/* Define configuration */
+#define CONFIG_USE_TPG
+#define CONFIG_USE_HDMI_RX
+#define CONFIG_USE_HDMI_TX
+#define CONFIG_USE_SDSOC
+
+/* Includes */
+#include "pl.dtsi"
+#include "rpu0.dtsi"
+#include "rpu1.dtsi"

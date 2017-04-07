@@ -1,0 +1,69 @@
+#ifdef CONFIG_USE_HDMI_RX
+#include "vcap-hdmi.dtsi"
+#endif
+#ifdef CONFIG_USE_CSI
+#include "vcap-csi.dtsi"
+#endif
+#ifdef CONFIG_USE_TPG
+#include "vcap-tpg.dtsi"
+#endif
+#ifdef CONFIG_USE_HDMI_TX
+#include "drm-hdmi.dtsi"
+#endif
+#ifdef CONFIG_USE_SDSOC
+#include "xlnk.dtsi"
+#endif
+
+&amba {
+	vid_stream_clk: vid_stream_clk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <300000000>;
+	};
+
+	vid_s_axi_clk: vid_s_axi_clk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <50000000>;
+	};
+
+#if defined(CONFIG_USE_HDMI_RX) || defined(CONFIG_USE_HDMI_TX)
+	vphy: vphy@a0000000 {
+		compatible = "xlnx,vid-phy-controller-2.0";
+		reg = <0x0 0xa0000000 0x0 0x10000>;
+		interrupts = <0 92 4>;
+		interrupt-parent = <&gic>;
+		clocks = <&vid_s_axi_clk>;
+		clock-names = "axi-lite";
+
+		xlnx,input-pixels-per-clock = <0x2>;
+		xlnx,nidru = <0x1>;
+		xlnx,nidru-refclk-sel = <0x4>;
+		xlnx,rx-no-of-channels = <0x3>;
+		xlnx,rx-pll-selection = <0x0>;
+		xlnx,rx-protocol = <0x1>;
+		xlnx,rx-refclk-sel = <0x1>;
+		xlnx,tx-no-of-channels = <0x3>;
+		xlnx,tx-pll-selection = <0x6>;
+		xlnx,tx-protocol = <0x1>;
+		xlnx,tx-refclk-sel = <0x0>;
+		xlnx,hdmi-fast-switch = <0x1>;
+		xlnx,transceiver-type = <0x5>;
+		xlnx,tx-buffer-bypass = <0x1>;
+		xlnx,transceiver-width = <0x4>;
+
+		vphy_lane0: vphy_lane@0 {
+			#phy-cells = <4>;
+		};
+		vphy_lane1: vphy_lane@1 {
+			#phy-cells = <4>;
+		};
+		vphy_lane2: vphy_lane@2 {
+			#phy-cells = <4>;
+		};
+		vphy_lane3: vphy_lane@3 {
+			#phy-cells = <4>;
+		};
+	};
+#endif
+};

@@ -1,0 +1,29 @@
+/include/ "system-conf.dtsi"
+
+/ {
+	chosen {
+		bootargs = "earlycon clk_ignore_unused earlyprintk consoleblank=0 cma=1024M";
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0 0 0 0x80000000>, <0x8 0 0 0x80000000>;
+	};
+
+	firmware {
+		optee {
+			compatible = "linaro,optee-tz";
+			method = "smc";
+		};
+	};
+};
+
+&xilinx_drm {
+	planes {
+		xlnx,pixel-format = "argb8888";
+	};
+};
+
+&xlnx_dp_sub {
+	xlnx,gfx-fmt = "argb8888";
+};

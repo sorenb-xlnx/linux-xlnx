@@ -1,0 +1,28 @@
+&i2c1 {
+	i2cswitch@75 {
+		i2c@0 {
+			eeprom@50 { /* HPC0_IIC */
+				compatible = "at,24c64";
+				reg = <0x57>;
+			};
+		};
+	};
+};
+
+&axi_iic_0_sensor {
+	vs2016: sensor@50 {
+		compatible = "vs,vs2016";
+		reg = <0x50>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			sensor_out: endpoint {
+				remote-endpoint = <&csiss_in>;
+			};
+		};
+	};
+};
