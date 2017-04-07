@@ -100,7 +100,7 @@
 
 		xlnx,input-pixels-per-clock = <2>;
 		xlnx,max-bits-per-component = <8>;
-		xlnx,pixel-format = "argb8888";
+		xlnx,pixel-format = "rgb";
 		xlnx,hdmi-tx-offset = <0x00000>;
 		xlnx,vtc-offset = <0x10000>;
 	};
