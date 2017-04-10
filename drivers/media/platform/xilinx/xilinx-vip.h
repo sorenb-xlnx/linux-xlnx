@@ -222,6 +222,7 @@ static inline void xvip_disable_reg_update(struct xvip_device *xvip)
 
 static inline void xvip_print_version(struct xvip_device *xvip)
 {
+#if 0
 	u32 version;
 
 	version = xvip_read(xvip, XVIP_CTRL_VERSION);
@@ -233,6 +234,7 @@ static inline void xvip_print_version(struct xvip_device *xvip)
 		  XVIP_CTRL_VERSION_MINOR_SHIFT),
 		 ((version & XVIP_CTRL_VERSION_REVISION_MASK) >>
 		  XVIP_CTRL_VERSION_REVISION_SHIFT));
+#endif
 }
 
 #endif /* __XILINX_VIP_H__ */
