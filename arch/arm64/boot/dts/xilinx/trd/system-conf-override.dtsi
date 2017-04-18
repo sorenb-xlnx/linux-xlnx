@@ -27,3 +27,11 @@
 &xlnx_dp_sub {
 	xlnx,gfx-fmt = "argb8888";
 };
+
+&tca6416_u97 {
+	gtr_sel0 {
+		/* PCIE = 0, DP = 1 */
+		/delete-property/ output-low;
+		output-high;
+	};
+};
