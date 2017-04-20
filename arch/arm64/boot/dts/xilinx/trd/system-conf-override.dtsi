@@ -35,3 +35,7 @@
 		output-high;
 	};
 };
+
+&pss_ref_clk {
+	clock-frequency = <33330000>;
+};
