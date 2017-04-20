@@ -107,7 +107,7 @@
 
 	xilinx_drm_hdmi {
 		compatible = "xlnx,drm";
-		status = "ok";
+		status = "okay";
 		clocks = <&si5324 0>;
 
 		xlnx,mixer = <&v_mix_0>;
