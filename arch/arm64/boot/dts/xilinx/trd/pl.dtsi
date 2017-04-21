@@ -15,7 +15,7 @@
 #endif
 
 &amba {
-	vid_stream_clk: vid_stream_clk {
+	axi_stream_clk: axi_stream_clk {
 		compatible = "fixed-factor-clock";
 		clocks = <&clkc 71>;
 		#clock-cells = <0>;
@@ -23,7 +23,7 @@
 		clock-mult = <6>;
 	};
 
-	vid_s_axi_clk: vid_s_axi_clk {
+	axi_lite_clk: axi_lite_clk {
 		compatible = "fixed-factor-clock";
 		clocks = <&clkc 71>;
 		#clock-cells = <0>;
@@ -37,7 +37,7 @@
 		reg = <0x0 0xa0000000 0x0 0x10000>;
 		interrupts = <0 92 4>;
 		interrupt-parent = <&gic>;
-		clocks = <&vid_s_axi_clk>, <&si570_2>;
+		clocks = <&axi_lite_clk>, <&si570_2>;
 		clock-names = "axi-lite", "dru-clk";
 
 		xlnx,input-pixels-per-clock = <0x2>;

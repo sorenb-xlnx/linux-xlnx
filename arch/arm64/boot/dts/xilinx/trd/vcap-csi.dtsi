@@ -8,7 +8,7 @@
 		interrupt-parent = <&gic>;
 		interrupts = <0 104 4>;
 		reg = <0x0 0xa00a0000 0x0 0x10000>;
-		clocks = <&vid_s_axi_clk>;
+		clocks = <&axi_lite_clk>;
 	};
 
 	gpio_sensor: gpio@a00b0000 {
@@ -28,7 +28,7 @@
 	csiss_1: csiss@a0060000 {
 		compatible = "xlnx,mipi-csi2-rx-subsystem-2.0";
 		reg = <0x0 0xa0060000 0x0 0x10000>;
-		clocks = <&vid_stream_clk>;
+		clocks = <&axi_stream_clk>;
 		interrupt-parent = <&gic>;
 		interrupts = <0 95 4>;
 
@@ -73,7 +73,7 @@
 	v_demosaic_0: v_demosaic@b0040000 {
 		compatible = "xlnx,v-demosaic-v1.0";
 		reg = <0x0 0xb0040000 0x0 0x10000>;
-		clocks = <&vid_stream_clk>;
+		clocks = <&axi_stream_clk>;
 
 		reset-gpios = <&gpio 85 1>;
 
@@ -109,7 +109,7 @@
 	gamma_1: v_gamma@b0010000 {
 		compatible = "xlnx,v-gamma-lut-v1.0";
 		reg = <0x0 0xb0010000 0x0 0x10000>;
-		clocks = <&vid_stream_clk>;
+		clocks = <&axi_stream_clk>;
 
 		reset-gpios = <&gpio 86 1>;
 
@@ -144,7 +144,7 @@
 	csc_1: csc@b0060000 {
 		compatible = "xlnx,v-vpss-csc-only";
 		reg = <0x0 0xb0060000 0x0 0x10000>;
-		clocks = <&vid_stream_clk>;
+		clocks = <&axi_stream_clk>;
 
 		reset-gpios = <&gpio 84 1>;
 
@@ -178,7 +178,7 @@
 	scaler_1: scaler@b0080000 {
 		compatible = "xlnx,v-scaler-hls-8.1";
 		reg = <0x0 0xb0080000 0x0 0x40000>;
-		clocks = <&vid_stream_clk>;
+		clocks = <&axi_stream_clk>;
 
 		xlnx,num-hori-taps = <8>;
 		xlnx,num-vert-taps = <8>;
@@ -222,7 +222,7 @@
 		#dma-cells = <1>;
 		interrupt-parent = <&gic>;
 		interrupts = <0 96 4>;
-		clocks = <&vid_stream_clk>;
+		clocks = <&axi_stream_clk>;
 		clock-names = "axis";
 		xlnx,vid-fmt = "yuyv";
 		reset-gpios = <&gpio 80 1>;
