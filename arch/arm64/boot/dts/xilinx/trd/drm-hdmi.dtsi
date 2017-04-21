@@ -97,6 +97,7 @@
 		clock-names = "axi-lite", "video", "retimer-clk";
 		phy-names = "hdmi-phy0", "hdmi-phy1", "hdmi-phy2";
 		phys = <&vphy_lane0 0 1 1 1>, <&vphy_lane1 0 1 1 1>, <&vphy_lane2 0 1 1 1>;
+		tx_refclk_rdy_en-gpios = <&gpio 89 0>;
 
 		xlnx,input-pixels-per-clock = <2>;
 		xlnx,max-bits-per-component = <8>;
