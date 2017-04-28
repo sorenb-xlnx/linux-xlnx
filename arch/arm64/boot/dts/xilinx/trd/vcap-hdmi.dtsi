@@ -33,7 +33,7 @@
 	};
 
 	scaler_2: scaler@b0100000 {
-		compatible = "xlnx,v-scaler-hls-8.1";
+		compatible = "xlnx,v-vpss-scaler", "xlnx,v-scaler-hls-8.1";
 		reg = <0x0 0xb0100000 0x0 0x40000>;
 		clocks = <&axi_stream_clk>;
 
