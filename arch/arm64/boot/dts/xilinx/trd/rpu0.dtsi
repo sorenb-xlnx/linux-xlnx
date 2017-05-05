@@ -7,9 +7,9 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
-		rpu0_reserved: rpu0_reserved@3e000000 {
+		rpu0_reserved: rpu0_reserved@4e000000 {
 			no-map;
-			reg = <0x0 0x3e000000 0x0 0x1000000>;
+			reg = <0x0 0x4e000000 0x0 0x1000000>;
 		};
 	};
 };
