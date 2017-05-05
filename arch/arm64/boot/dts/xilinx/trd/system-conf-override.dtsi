@@ -81,3 +81,7 @@
 		reg = <0 0xfd9b0000 0 0x1000>;
 	};
 };
+
+&uart1 {
+	status = "disabled";
+};
