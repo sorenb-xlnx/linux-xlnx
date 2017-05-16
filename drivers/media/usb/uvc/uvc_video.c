@@ -860,57 +860,13 @@ static void uvc_video_stats_update(struct uvc_streaming *stream)
 	memset(&stream->stats.frame, 0, sizeof(stream->stats.frame));
 }
 
-size_t uvc_video_dump_time_stats(char *buf, size_t size,
-		struct uvc_stats_time *stat, const char *pfx)
-{
-	unsigned int avg = 0;
-
-	if (stat->qty)
-		avg = stat->duration / stat->qty;
-
-	/* Stat durations are in nanoseconds, we present in micro-seconds */
-	return scnprintf(buf, size,
-			  "%s: %llu/%u uS/qty: %u.%03u avg %u.%03u min %u.%03u max (uS)\n",
-			   pfx, stat->duration / 1000, stat->qty,
-			   avg / 1000, avg % 1000,
-			   stat->min / 1000, stat->min % 1000,
-			   stat->max / 1000, stat->max % 1000);
-}
-
-size_t uvc_video_dump_speed(char *buf, size_t size, const char *pfx,
-		u64 bytes, u64 milliseconds)
-{
-	unsigned int rate = 0;
-	bool gbit = false;
-
-	if (milliseconds)
-		rate = bytes * 8 / milliseconds;
-
-	if (rate >= 1000000) {
-		gbit = true;
-		rate /= 1000;
-	}
-
-	/*
-	 * bits/milliseconds == kilobits/seconds,
-	 * presented here as Mbits/s (or Gbit/s) with 3 decimal places
-	 */
-	return scnprintf(buf, size, "%s: %d.%03d %sbits/s\n",
-			 pfx, rate / 1000, rate % 1000,
-			 gbit ? "G" : "M");
-}
-
 size_t uvc_video_stats_dump(struct uvc_streaming *stream, char *buf,
 			    size_t size)
 {
-	u64 bytes = stream->stats.stream.bytes; /* Single sample */
-	unsigned int empty_ratio = 0;
 	unsigned int scr_sof_freq;
 	unsigned int duration;
-	unsigned int fps = 0;
 	struct timespec ts;
 	size_t count = 0;
-	u64 cpu = 0;
 
 	ts = timespec_sub(stream->stats.stream.stop_ts,
 			  stream->stats.stream.start_ts);
@@ -925,20 +881,12 @@ size_t uvc_video_stats_dump(struct uvc_streaming *stream, char *buf,
 	else
 		scr_sof_freq = 0;
 
-	if (stream->stats.stream.nb_packets)
-		empty_ratio = stream->stats.stream.nb_empty * 100 /
-			stream->stats.stream.nb_packets;
-
 	count += scnprintf(buf + count, size - count,
-			   "frames:  %u\n"
-			   "packets: %u\n"
-			   "empty:   %u (%u %%)\n"
-			   "errors:  %u\n"
-			   "invalid: %u\n",
+			   "frames:  %u\npackets: %u\nempty:   %u\n"
+			   "errors:  %u\ninvalid: %u\n",
 			   stream->stats.stream.nb_frames,
 			   stream->stats.stream.nb_packets,
 			   stream->stats.stream.nb_empty,
-			   empty_ratio,
 			   stream->stats.stream.nb_errors,
 			   stream->stats.stream.nb_invalid);
 	count += scnprintf(buf + count, size - count,
@@ -955,51 +903,6 @@ size_t uvc_video_stats_dump(struct uvc_streaming *stream, char *buf,
 			   stream->stats.stream.min_sof,
 			   stream->stats.stream.max_sof,
 			   scr_sof_freq / 1000, scr_sof_freq % 1000);
-	count += scnprintf(buf + count, size - count,
-			   "bytes %lld : duration %d\n",
-			   bytes, duration);
-
-	if (duration != 0) {
-		/* Duration is in milliseconds, * 100 to gain 2 dp precision */
-		fps = stream->stats.stream.nb_frames * 1000 * 100 / duration;
-		/* CPU usage as a % with 6 decimal places */
-		cpu = stream->stats.urbstat.decode.duration / duration * 100;
-	}
-
-	count += scnprintf(buf + count, size - count,
-			   "FPS: %u.%02u\n", fps / 100, fps % 100);
-
-	/* Processing Times */
-
-	count += uvc_video_dump_time_stats(buf + count, size - count,
-			   &stream->stats.urbstat.urb, "URB");
-	count += uvc_video_dump_time_stats(buf + count, size - count,
-			   &stream->stats.urbstat.latency, "latency");
-	count += uvc_video_dump_time_stats(buf + count, size - count,
-			   &stream->stats.urbstat.decode, "decode");
-
-	/* Processing Speeds */
-
-	/* This should be representative of the memory bus / cpu speed */
-	count += uvc_video_dump_speed(buf + count, size - count,
-			   "raw decode speed",
-			   bytes,
-			   stream->stats.urbstat.decode.duration / 1000000);
-
-	/* Raw bus speed - scheduling latencies */
-	count += uvc_video_dump_speed(buf + count, size - count,
-			   "raw URB handling speed",
-			   bytes,
-			   stream->stats.urbstat.urb.duration / 1000000);
-
-	/* Throughput against wall clock time, stream duration is in millis*/
-	count += uvc_video_dump_speed(buf + count, size - count,
-			   "throughput", bytes, duration);
-
-	/* Determine the 'CPU Usage' of our URB processing */
-	count += scnprintf(buf + count, size - count,
-			   "URB decode CPU usage %llu.%06llu %%\n",
-			   cpu / 1000000, cpu % 1000000);
 
 	return count;
 }
@@ -1008,36 +911,11 @@ static void uvc_video_stats_start(struct uvc_streaming *stream)
 {
 	memset(&stream->stats, 0, sizeof(stream->stats));
 	stream->stats.stream.min_sof = 2048;
-
-	stream->stats.urbstat.urb.min = -1;
-	stream->stats.urbstat.latency.min = -1;
-	stream->stats.urbstat.decode.min = -1;
 }
 
 static void uvc_video_stats_stop(struct uvc_streaming *stream)
 {
 	ktime_get_ts(&stream->stats.stream.stop_ts);
-}
-
-static s64 uvc_stats_add(struct uvc_stats_time *s,
-			 const struct timespec *a, const struct timespec *b)
-{
-	struct timespec delta;
-	u64 duration;
-
-	delta = timespec_sub(*b, *a);
-	duration = timespec_to_ns(&delta);
-
-	s->qty++;
-	s->duration += duration;
-
-	if (duration < s->min)
-		s->min = duration;
-
-	if (duration > s->max)
-		s->max = duration;
-
-	return duration;
 }
 
 /* ------------------------------------------------------------------------
@@ -1103,9 +981,6 @@ static int uvc_video_decode_start(struct uvc_streaming *stream,
 		stream->sequence++;
 		if (stream->sequence)
 			uvc_video_stats_update(stream);
-
-		/* Update the stream timer each frame */
-		ktime_get_ts(&stream->stats.stream.stop_ts);
 	}
 
 	uvc_video_clock_decode(stream, buf, data, len);
@@ -1194,35 +1069,17 @@ static int uvc_video_decode_start(struct uvc_streaming *stream,
 static void uvc_video_decode_data_work(struct work_struct *work)
 {
 	struct uvc_urb *uvc_urb = container_of(work, struct uvc_urb, work);
-	struct timespec now;
 	unsigned int i;
 	int ret;
-
-	/* Measure decode performance */
-	ktime_get_ts(&uvc_urb->decode_start);
-	/* Measure scheduling latency */
-	uvc_stats_add(&uvc_urb->stream->stats.urbstat.latency,
-		      &uvc_urb->received,
-		      &uvc_urb->decode_start);
 
 	for (i = 0; i < uvc_urb->packets; i++) {
 		struct uvc_decode_op *op = &uvc_urb->decodes[i];
 
 		memcpy(op->dst, op->src, op->len);
-		uvc_urb->stream->stats.stream.bytes += op->len;
 
 		/* Release reference taken on this buffer */
 		uvc_queue_buffer_release(op->buf);
 	}
-
-	ktime_get_ts(&now);
-	/* measure 'memcpy time' */
-	uvc_stats_add(&uvc_urb->stream->stats.urbstat.decode,
-		      &uvc_urb->decode_start,
-		      &now);
-	/* measure 'full urb processing time' */
-	uvc_stats_add(&uvc_urb->stream->stats.urbstat.urb,
-			&uvc_urb->received, &now);
 
 	ret = usb_submit_urb(uvc_urb->urb, GFP_ATOMIC);
 	if (ret  < 0) {
@@ -1507,9 +1364,6 @@ static void uvc_video_complete(struct urb *urb)
 	struct uvc_streaming *stream = uvc_urb->stream;
 	struct uvc_video_queue *queue = &stream->queue;
 	struct uvc_buffer *buf = NULL;
-
-	/* Track URB processing performance */
-	ktime_get_ts(&uvc_urb->received);
 
 	switch (urb->status) {
 	case 0:
