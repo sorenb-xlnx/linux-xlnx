@@ -909,7 +909,6 @@ size_t uvc_video_stats_dump(struct uvc_streaming *stream, char *buf,
 	unsigned int duration;
 	unsigned int fps = 0;
 	struct timespec ts;
-	unsigned int urbs;
 	size_t count = 0;
 	u64 cpu = 0;
 
@@ -1001,14 +1000,6 @@ size_t uvc_video_stats_dump(struct uvc_streaming *stream, char *buf,
 	count += scnprintf(buf + count, size - count,
 			   "URB decode CPU usage %llu.%06llu %%\n",
 			   cpu / 1000000, cpu % 1000000);
-
-	urbs = atomic_read(&stream->urbs_active);
-	count += scnprintf(buf + count, size - count,
-			   "URBS active %u queued %u total %u packets %u URB size %u\n"
-			   "URBS avg %u max %u\n",
-			   urbs, UVC_URBS - urbs, UVC_URBS, UVC_MAX_PACKETS, stream->urb_size,
-			   stream->urbs_active_stats.total / stream->urbs_active_stats.qty,
-			   stream->urbs_active_stats.max);
 
 	return count;
 }
@@ -1238,9 +1229,6 @@ static void uvc_video_decode_data_work(struct work_struct *work)
 		uvc_printk(KERN_ERR, "Failed to resubmit video URB (%d).\n",
 			ret);
 	}
-
-	/* URB Requeued, (or lost) */
-	atomic_dec(&uvc_urb->stream->urbs_active);
 }
 
 static void uvc_video_decode_data(struct uvc_decode_op *decode,
@@ -1519,7 +1507,6 @@ static void uvc_video_complete(struct urb *urb)
 	struct uvc_streaming *stream = uvc_urb->stream;
 	struct uvc_video_queue *queue = &stream->queue;
 	struct uvc_buffer *buf = NULL;
-	unsigned int urbs;
 
 	/* Track URB processing performance */
 	ktime_get_ts(&uvc_urb->received);
@@ -1541,14 +1528,6 @@ static void uvc_video_complete(struct urb *urb)
 		uvc_queue_cancel(queue, urb->status == -ESHUTDOWN);
 		return;
 	}
-
-	/* We have received a 'queued' URB */
-	urbs = atomic_inc_return(&stream->urbs_active);
-	if (urbs > stream->urbs_active_stats.max)
-		stream->urbs_active_stats.max = urbs;
-	/* average */
-	stream->urbs_active_stats.total += urbs;
-	stream->urbs_active_stats.qty++;
 
 	buf = uvc_queue_get_current_buffer(queue);
 
@@ -1827,8 +1806,6 @@ static int uvc_init_video(struct uvc_streaming *stream, gfp_t gfp_flags)
 	stream->bulk.header_size = 0;
 	stream->bulk.skip_payload = 0;
 	stream->bulk.payload_size = 0;
-
-	atomic_set(&stream->urbs_active, 0);
 
 	uvc_video_stats_start(stream);
 
