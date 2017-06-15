@@ -28,4 +28,4 @@
 	cpus {
 	};
 };
-#include "trd/system-user.dtsi"
+#include "trd/zcu102-base-dm9.dtsi"

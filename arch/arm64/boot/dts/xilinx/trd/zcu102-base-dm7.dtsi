@@ -1,4 +1,4 @@
-/include/ "system-conf-override.dtsi"
+/include/ "trd/system-conf-override.dtsi"
 
 /* Define configuration */
 #define CONFIG_USE_TPG
