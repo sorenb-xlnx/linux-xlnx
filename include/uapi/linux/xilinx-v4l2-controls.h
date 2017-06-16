@@ -71,6 +71,8 @@
 #define V4L2_CID_XILINX_TPG_NOISE_GAIN		(V4L2_CID_XILINX_TPG + 17)
 /* Foreground pattern (HLS)*/
 #define V4L2_CID_XILINX_TPG_HLS_FG_PATTERN     (V4L2_CID_XILINX_TPG + 18)
+/* pixels per clock control */
+#define V4L2_CID_XILINX_PPC			(V4L2_CID_XILINX_TPG + 19)
 
 
 /*
