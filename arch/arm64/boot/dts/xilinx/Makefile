@@ -17,6 +17,7 @@ dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu102-base-trd-dm6.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu102-base-trd-dm7.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu102-base-trd-dm8.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu102-base-trd-dm9.dtb
+dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu102-base-trd-dm10.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu102-revision.dtb
 
 always		:= $(dtb-y)
