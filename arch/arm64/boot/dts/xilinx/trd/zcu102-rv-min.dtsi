@@ -1,0 +1,7 @@
+/include/ "trd/system-conf-override.dtsi"
+
+/* Define configuration */
+#define CONFIG_USE_SDSOC
+
+/* Includes */
+#include "pl.dtsi"
