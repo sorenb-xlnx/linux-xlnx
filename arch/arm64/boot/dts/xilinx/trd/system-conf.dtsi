@@ -31,6 +31,10 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		spi-max-frequency = <108000000>;
+		/delete-node/ partition@qspi-fsbl-uboot;
+		/delete-node/ partition@qspi-linux;
+		/delete-node/ partition@qspi-device-tree;
+		/delete-node/ partition@qspi-rootfs;
 		partition@0x00000000 {
 			label = "boot";
 			reg = <0x00000000 0x01e00000>;

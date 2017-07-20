@@ -110,7 +110,7 @@
 	status = "okay";
 };
 &sdhci1 {
-	clock-frequency = <187498000>;
+	clock-frequency = <187481000>;
 	status = "okay";
 	xlnx,mio_bank = <0x1>;
 };
