@@ -28,4 +28,4 @@
 	cpus {
 	};
 };
-#include "trd/zcu102-ev.dtsi"
+#include "trd/zcu102-rv-ss.dtsi"
