@@ -10,12 +10,12 @@
 };
 
 &axi_iic_0_sensor {
-	vs2016: sensor@50 {
-		compatible = "vs,vs2016";
-		reg = <0x50>;
-
+	imx274: sensor@1a{
+		compatible = "sony,imx274";
+		reg = <0x1a>;
 		#address-cells = <1>;
 		#size-cells = <0>;
+		sensor_reset-gpios = <&gpio_sensor 0 1>;
 
 		port@0 {
 			reg = <0>;
