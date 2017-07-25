@@ -8,7 +8,7 @@ Required Properties:
 - compatible: value should be "Sony,imx274" for imx274 sensor
 
 Optional Properties:
-- sensor_reset-gpios: Sensor reset GPIO
+- reset-gpios: Sensor reset GPIO
 
 For further reading on port node refer to
 Documentation/devicetree/bindings/media/video-interfaces.txt.
@@ -21,7 +21,6 @@ Example:
 		reg = <0x1a>;
 		#address-cells = <1>;
 		#size-cells = <0>;
-
 		reset-gpios = <&gpio_sensor 0 1>;
 
 		port@0 {
