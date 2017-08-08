@@ -37,7 +37,12 @@
 		reg = <0x0 0xa0000000 0x0 0x10000>;
 		interrupts = <0 92 4>;
 		interrupt-parent = <&gic>;
+#ifdef PLATFORM_ZCU102
 		clocks = <&axi_lite_clk>, <&si570_2>;
+#endif
+#ifdef PLATFORM_ZCU104
+		clocks = <&axi_lite_clk>, <&hdmi_dru_clk>;
+#endif
 		clock-names = "axi-lite", "dru-clk";
 
 		xlnx,input-pixels-per-clock = <0x2>;

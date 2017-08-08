@@ -1,3 +1,5 @@
+#define PLATFORM_ZCU102
+
 / {
 	model = "ZynqMP ZCU102 RevB";
 	compatible = "xlnx,zynqmp-zcu102", "xlnx,zynqmp";

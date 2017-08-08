@@ -13,6 +13,8 @@
 
 /dts-v1/;
 
+#define PLATFORM_ZCU104
+
 #include "zynqmp.dtsi"
 #include "zynqmp-clk-ccf.dtsi"
 #include <dt-bindings/gpio/gpio.h>
@@ -20,6 +22,8 @@
 
 #define CONFIG_USE_CSI
 #define CONFIG_USE_SDSOC
+#define CONFIG_USE_HDMI_TX
+#define CONFIG_USE_HDMI_RX
 #include "trd/pl.dtsi"
 #include "trd/li-imx274mipi-fmc.dtsi"
 
@@ -41,7 +45,7 @@
 	};
 
 	chosen {
-		bootargs = "earlycon clk_ignore_unused earlyprintk uio_pdrv_genirq.of_id=xlnx,generic-uio consoleblank=0 cma=1024M";
+		bootargs = "earlycon clk_ignore_unused earlyprintk uio_pdrv_genirq.of_id=xlnx,generic-uio consoleblank=0 cma=128M";
 		stdout-path = "serial0:115200n8";
 	};
 
