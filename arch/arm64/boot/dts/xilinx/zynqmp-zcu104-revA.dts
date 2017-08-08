@@ -55,6 +55,15 @@
 	};
 };
 
+&amba {
+	/* IDT 8t349n287 outputs */
+	hdmi_dru_clk: clock-generator-hdmi-dru-clk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <156250000>;
+	};
+};
+
 &can1 {
 	status = "okay";
 };
