@@ -68,21 +68,25 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
  * (float)input_gain_value / (1 << IMX274_GAIN_SHIFT)
  */
 #define IMX274_GAIN_SHIFT			(8)
+#define IMX274_GAIN_SHIFT_MASK			((1 << IMX274_GAIN_SHIFT) - 1)
 
 /*
- * See "Analog Gain" in datasheet
+ * See "Analog Gain" and "Digital Gain" in datasheet
  * min gain is 1X
- * max gain is 22.5X, round to 23
+ * max gain is calculated based on IMX274_GAIN_REG_MAX
  */
 #define IMX274_GAIN_REG_MAX			(1957)
 #define IMX274_MIN_GAIN				(0x01 << IMX274_GAIN_SHIFT)
-#define IMX274_MAX_GAIN				(23 << IMX274_GAIN_SHIFT)
+#define IMX274_MAX_ANALOG_GAIN			((2048 << IMX274_GAIN_SHIFT)\
+					/ (2048 - IMX274_GAIN_REG_MAX))
+#define IMX274_MAX_DIGITAL_GAIN			(8)
 #define IMX274_DEF_GAIN				(20 << IMX274_GAIN_SHIFT)
+#define IMX274_GAIN_CONST			(2048) /* for gain formula */
 
 /*
- * 1 line time in us = (HMAX / 72)
+ * 1 line time in us = (HMAX / 72), minimal is 4 lines
  */
-#define IMX274_MIN_EXPOSURE_TIME		(260 / 72)
+#define IMX274_MIN_EXPOSURE_TIME		(4 * 260 / 72)
 
 #define IMX274_DEFAULT_MODE			IMX274_MODE_3840X2160
 #define IMX274_MAX_WIDTH			(3840)
@@ -102,6 +106,16 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
 #define IMX274_RESET_DELAY1			(2000)
 #define IMX274_RESET_DELAY2			(2200)
 
+/*
+ * shift and mask constants
+ */
+#define IMX274_SHIFT_8_BITS			(8)
+#define IMX274_SHIFT_16_BITS			(16)
+#define IMX274_MASK_LSB_2_BITS			(0x03)
+#define IMX274_MASK_LSB_3_BITS			(0x07)
+#define IMX274_MASK_LSB_4_BITS			(0x0f)
+#define IMX274_MASK_LSB_8_BITS			(0x00ff)
+
 #define DRIVER_NAME "IMX274"
 
 /*
@@ -118,6 +132,7 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
 #define IMX274_COARSE_TIME_ADDR_LSB		0x300C /* SHR */
 #define IMX274_ANALOG_GAIN_ADDR_LSB		0x300A /* ANALOG GAIN LSB */
 #define IMX274_ANALOG_GAIN_ADDR_MSB		0x300B /* ANALOG GAIN MSB */
+#define IMX274_DIGITAL_GAIN_REG			0x3012 /* Digital Gain */
 #define IMX274_VFLIP_REG			0x301A /* VERTICAL FLIP */
 #define IMX274_STANDBY_REG			0x3000 /* STANDBY */
 
@@ -147,9 +162,6 @@ struct imx274_frmfmt {
 	u32 mbus_code;
 	enum v4l2_colorspace colorspace;
 	struct v4l2_frmsize_discrete size;
-	const int *framerates;
-	int num_framerates;
-	bool hdr_en;
 	int mode;
 };
 
@@ -157,15 +169,35 @@ struct imx274_frmfmt {
  * imx274 test pattern related structure
  */
 enum {
-	TEST_PATTERN_DISABLED,
-	TEST_PATTERN_GRAY_IMAGE,
-	TEST_PATTERN_COLOR_BARS,
+	TEST_PATTERN_DISABLED = 0,
+	TEST_PATTERN_ALL_000H,
+	TEST_PATTERN_ALL_FFFH,
+	TEST_PATTERN_ALL_555H,
+	TEST_PATTERN_ALL_AAAH,
+	TEST_PATTERN_VSP_5AH, /* VERTICAL STRIPE PATTERN 555H/AAAH */
+	TEST_PATTERN_VSP_A5H, /* VERTICAL STRIPE PATTERN AAAH/555H */
+	TEST_PATTERN_VSP_05H, /* VERTICAL STRIPE PATTERN 000H/555H */
+	TEST_PATTERN_VSP_50H, /* VERTICAL STRIPE PATTERN 555H/000H */
+	TEST_PATTERN_VSP_0FH, /* VERTICAL STRIPE PATTERN 000H/FFFH */
+	TEST_PATTERN_VSP_F0H, /* VERTICAL STRIPE PATTERN FFFH/000H */
+	TEST_PATTERN_H_COLOR_BARS,
+	TEST_PATTERN_V_COLOR_BARS,
 };
 
 static const char * const tp_qmenu[] = {
 	"Disabled",
-	"Gray Image",
-	"Color Bars",
+	"All 000h Pattern",
+	"All FFFh Pattern",
+	"All 555h Pattern",
+	"All AAAh Pattern",
+	"Vertical Stripe (555h / AAAh)",
+	"Vertical Stripe (AAAh / 555h)",
+	"Vertical Stripe (000h / 555h)",
+	"Vertical Stripe (555h / 000h)",
+	"Vertical Stripe (000h / FFFh)",
+	"Vertical Stripe (FFFh / 000h)",
+	"Horizontal Color Bars",
+	"Vertical Color Bars",
 };
 
 /*
@@ -457,28 +489,19 @@ static const imx274_reg imx274_stop[] = {
  */
 static const imx274_reg imx274_tp_disabled[] = {
 	{0x303C, 0x00},
+	{0x377F, 0x00},
+	{0x3781, 0x00},
+	{0x370B, 0x00},
 	{IMX274_TABLE_END, 0x00}
 };
 
 /*
- * imx274 gray image test pattern register configuration
+ * imx274 test pattern register configuration
+ * reg 0x303D defines the test pattern modes
  */
-static const imx274_reg imx274_tp_gray_image[] = {
+static imx274_reg imx274_tp_regs[] = {
+	{0x303D, 0x00},
 	{0x303C, 0x11},
-	{0x303D, 0x03},
-	{0x370E, 0x01},
-	{0x377F, 0x01},
-	{0x3781, 0x01},
-	{0x370B, 0x11},
-	{IMX274_TABLE_END, 0x00}
-};
-
-/*
- * imx274 color bar test pattern register configuration
- */
-static const imx274_reg imx274_tp_color_bars[] = {
-	{0x303C, 0x11},
-	{0x303D, 0x0A},
 	{0x370E, 0x01},
 	{0x377F, 0x01},
 	{0x3781, 0x01},
@@ -514,22 +537,15 @@ static const imx274_reg *mode_table[] = {
 };
 
 /*
- * imx274 framerate related structure
- */
-static const int imx274_framerate[] = {
-	60
-};
-
-/*
  * imx274 format related structure
  */
 static const struct imx274_frmfmt imx274_formats[] = {
 	{MEDIA_BUS_FMT_SRGGB10_1X10, V4L2_COLORSPACE_SRGB, {3840, 2160},
-		imx274_framerate, 1, 0, IMX274_MODE_3840X2160},
+		IMX274_MODE_3840X2160},
 	{MEDIA_BUS_FMT_SRGGB10_1X10, V4L2_COLORSPACE_SRGB, {1920, 1080},
-		imx274_framerate, 1, 0, IMX274_MODE_1920X1080},
+		IMX274_MODE_1920X1080},
 	{MEDIA_BUS_FMT_SRGGB10_1X10, V4L2_COLORSPACE_SRGB, {1280, 720},
-		imx274_framerate, 1, 0, IMX274_MODE_1280X720},
+		IMX274_MODE_1280X720},
 };
 
 /*
@@ -556,6 +572,19 @@ static int max_frame_rate[] = {
 	60, /* mode 1 , 4K */
 	120, /* mode 3, 1080p */
 	120 /* mode 5, 720p */
+};
+
+/*
+ * Number of clocks per internal offset period
+ * a constant based on mode
+ * refer to section "Integration Time in Each Readout Drive Mode (CSI-2)"
+ * in the datasheet
+ * for the implemented 3 modes, it happens to be the same number
+ */
+static const int nocpiop[] = {
+	112, /* mode 1 , 4K */
+	112, /* mode 3, 1080p */
+	112 /* mode 5, 720p */
 };
 
 /*
@@ -620,7 +649,8 @@ static inline void msleep_range(unsigned int delay_base)
  */
 static inline struct v4l2_subdev *ctrl_to_sd(struct v4l2_ctrl *ctrl)
 {
-	return &container_of(ctrl->handler, struct stimx274, ctrls.handler)->sd;
+	return &container_of(ctrl->handler,
+			     struct stimx274, ctrls.handler)->sd;
 }
 
 static inline struct stimx274 *to_imx274(struct v4l2_subdev *sd)
@@ -629,7 +659,7 @@ static inline struct stimx274 *to_imx274(struct v4l2_subdev *sd)
 }
 
 /*
- * regmap_util_write_table_8 - Function for writing register table
+ * imx274_regmap_util_write_table_8 - Function for writing register table
  * @regmap: Pointer to device reg map structure
  * @table: Table containing register values
  * @wait_ms_addr: Flag for performing delay
@@ -639,9 +669,9 @@ static inline struct stimx274 *to_imx274(struct v4l2_subdev *sd)
  *
  * Return: 0 on success, errors otherwise
  */
-int regmap_util_write_table_8(struct regmap *regmap,
-			      const struct reg_8 table[],
-			      u16 wait_ms_addr, u16 end_addr)
+static int imx274_regmap_util_write_table_8(struct regmap *regmap,
+					    const struct reg_8 table[],
+					    u16 wait_ms_addr, u16 end_addr)
 {
 	int err;
 	const struct reg_8 *next;
@@ -691,9 +721,6 @@ int regmap_util_write_table_8(struct regmap *regmap,
 	return 0;
 }
 
-/*
- * Regsiter related operations
- */
 static inline int imx274_read_reg(struct stimx274 *priv, u16 addr, u8 *val)
 {
 	int err;
@@ -727,7 +754,7 @@ static inline int imx274_write_reg(struct stimx274 *priv, u16 addr, u8 val)
 
 static int imx274_write_table(struct stimx274 *priv, const imx274_reg table[])
 {
-	return regmap_util_write_table_8(priv->regmap,
+	return imx274_regmap_util_write_table_8(priv->regmap,
 		table, IMX274_TABLE_WAIT_MS, IMX274_TABLE_END);
 }
 
@@ -759,11 +786,19 @@ static int imx274_start_stream(struct stimx274 *priv, int mode)
 	if (err)
 		return err;
 
+	/*
+	 * Refer to "Standby Cancel Sequence when using CSI-2" in
+	 * imx274 datasheet, it should wait 10ms or more here.
+	 */
 	msleep(20);
 	err = imx274_write_table(priv, mode_table[IMX274_MODE_START_STREAM_3]);
 	if (err)
 		return err;
 
+	/*
+	 * Refer to "Standby Cancel Sequence when using CSI-2" in
+	 * imx274 datasheet, it should wait 7ms or more here.
+	 */
 	msleep(20);
 	err = imx274_write_table(priv, mode_table[IMX274_MODE_START_STREAM_4]);
 	if (err)
@@ -788,55 +823,6 @@ static void imx274_reset(struct stimx274 *priv, int rst)
 	usleep_range(IMX274_RESET_DELAY1, IMX274_RESET_DELAY2);
 	gpiod_set_value_cansleep(priv->reset_gpio, !!rst);
 	usleep_range(IMX274_RESET_DELAY1, IMX274_RESET_DELAY2);
-}
-
-/**
- * imx274_g_volatile_ctrl - get the imx274 V4L2 controls
- * @ctrl: Pointer to V4L2 control
- *
- * This is used to get the imx274 V4L2 controls.
- *
- * Return: 0 on success, errors otherwise
- */
-static int imx274_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
-{
-	struct v4l2_subdev *sd = ctrl_to_sd(ctrl);
-	struct stimx274 *imx274 = to_imx274(sd);
-	int ret = 0;
-
-	mutex_lock(&imx274->lock);
-
-	switch (ctrl->id) {
-	case V4L2_CID_EXPOSURE:
-		v4l2_dbg(1, debug, &imx274->sd,
-			 "%s : get V4L2_CID_EXPOSURE\n", __func__);
-		ctrl->val = imx274->ctrls.exposure->val;
-		break;
-
-	case V4L2_CID_GAIN:
-		v4l2_dbg(1, debug, &imx274->sd,
-			 "%s : get V4L2_CID_GAIN\n", __func__);
-		ctrl->val = imx274->ctrls.gain->val;
-		break;
-
-	case V4L2_CID_VFLIP:
-		v4l2_dbg(1, debug, &imx274->sd,
-			 "%s : get V4L2_CID_VFLIP\n", __func__);
-		ctrl->val = imx274->ctrls.vflip->val;
-		break;
-
-	case V4L2_CID_TEST_PATTERN:
-		v4l2_dbg(1, debug, &imx274->sd,
-			 "%s : get V4L2_CID_TEST_PATTERN\n", __func__);
-		ctrl->val = imx274->ctrls.test_pattern->val;
-		break;
-
-	default:
-		ret = -EINVAL;
-	}
-
-	mutex_unlock(&imx274->lock);
-	return ret;
 }
 
 /**
@@ -908,9 +894,7 @@ static int imx274_get_fmt(struct v4l2_subdev *sd,
 	if (fmt->pad)
 		return -EINVAL;
 
-	mutex_lock(&imx274->lock);
 	fmt->format = imx274->format;
-	mutex_unlock(&imx274->lock);
 
 	return 0;
 }
@@ -934,8 +918,10 @@ static int imx274_set_fmt(struct v4l2_subdev *sd,
 	struct i2c_client *client = imx274->client;
 	int index;
 
-	v4l2_dbg(1, debug, client, "%s: width = %d height = %d\n",
-		 __func__, fmt->width, fmt->height);
+	v4l2_dbg(1, debug, client,
+		 "%s: width = %d height = %d code = %d mbus_code = %d\n",
+		 __func__, fmt->width, fmt->height, fmt->code,
+		 imx274_formats[imx274->mode_index].mbus_code);
 
 	if (format->pad)
 		return -EINVAL;
@@ -959,8 +945,8 @@ static int imx274_set_fmt(struct v4l2_subdev *sd,
 		fmt->width = IMX274_MAX_WIDTH;
 	if (fmt->height > IMX274_MAX_HEIGHT)
 		fmt->height = IMX274_MAX_HEIGHT;
-	fmt->width = fmt->width & (~3);
-	fmt->height = fmt->height & (~3);
+	fmt->width = fmt->width & (~IMX274_MASK_LSB_2_BITS);
+	fmt->height = fmt->height & (~IMX274_MASK_LSB_2_BITS);
 	fmt->field = V4L2_FIELD_NONE;
 
 	if (format->which == V4L2_SUBDEV_FORMAT_TRY)
@@ -986,14 +972,10 @@ static int imx274_g_frame_interval(struct v4l2_subdev *sd,
 {
 	struct stimx274 *imx274 = to_imx274(sd);
 
-	mutex_lock(&imx274->lock);
-
 	fi->interval = imx274->frame_interval;
 	v4l2_dbg(1, debug, &imx274->sd, "%s frame rate = %d / %d\n",
 		 __func__, imx274->frame_interval.numerator,
 		imx274->frame_interval.denominator);
-
-	mutex_unlock(&imx274->lock);
 
 	return 0;
 }
@@ -1011,6 +993,8 @@ static int imx274_s_frame_interval(struct v4l2_subdev *sd,
 				   struct v4l2_subdev_frame_interval *fi)
 {
 	struct stimx274 *imx274 = to_imx274(sd);
+	struct v4l2_ctrl *ctrl = imx274->ctrls.exposure;
+	int min, max, def;
 	u64 req_frame_rate;
 	int ret;
 
@@ -1038,16 +1022,28 @@ static int imx274_s_frame_interval(struct v4l2_subdev *sd,
 
 	ret = __imx274_set_frame_interval(imx274,  imx274->frame_interval);
 
+	mutex_unlock(&imx274->lock);
+
 	if (!ret) {
+		/*
+		 * exposure time range is decided by frame interval
+		 * need to update it after frame interal changes
+		 */
+		min = IMX274_MIN_EXPOSURE_TIME;
+		max = fi->interval.numerator * 1000000
+			/ fi->interval.denominator;
+		def = max;
+		if (v4l2_ctrl_modify_range(ctrl, min, max, 1, def))
+			v4l2_err(sd, "Exposure ctrl range update failed\n");
+
 		/* update exposure time accordingly */
-		ret = imx274_set_exposure(imx274, imx274->ctrls.exposure->val);
+		imx274_set_exposure(imx274, imx274->ctrls.exposure->val);
 
 		v4l2_dbg(1, debug, &imx274->sd, "set frame interval to %uus\n",
 			 fi->interval.numerator * 1000000
 			 / fi->interval.denominator);
 	}
 
-	mutex_unlock(&imx274->lock);
 	return ret;
 }
 
@@ -1059,6 +1055,7 @@ static int imx274_s_frame_interval(struct v4l2_subdev *sd,
  */
 static int imx274_load_default(struct stimx274 *priv)
 {
+	struct v4l2_control control;
 	int ret;
 
 	/* load default control values */
@@ -1076,17 +1073,23 @@ static int imx274_load_default(struct stimx274 *priv)
 		return ret;
 
 	/* update exposure time */
-	ret = imx274_set_exposure(priv, priv->ctrls.exposure->val);
+	control.id = V4L2_CID_EXPOSURE;
+	control.value = priv->ctrls.exposure->val;
+	ret = v4l2_s_ctrl(NULL, &priv->ctrls.handler, &control);
 	if (ret)
 		return ret;
 
 	/* update gain */
-	ret = imx274_set_gain(priv, priv->ctrls.gain->val);
+	control.id = V4L2_CID_GAIN;
+	control.value = priv->ctrls.gain->val;
+	ret = v4l2_s_ctrl(NULL, &priv->ctrls.handler, &control);
 	if (ret)
 		return ret;
 
 	/* update vflip */
-	ret = imx274_set_vflip(priv, priv->ctrls.vflip->val);
+	control.id = V4L2_CID_VFLIP;
+	control.value = priv->ctrls.vflip->val;
+	ret = v4l2_s_ctrl(NULL, &priv->ctrls.handler, &control);
 	if (ret)
 		return ret;
 
@@ -1119,10 +1122,6 @@ static int imx274_s_stream(struct v4l2_subdev *sd, int on)
 		if (ret)
 			goto fail;
 
-		ret = imx274_load_default(imx274);
-		if (ret)
-			goto fail;
-
 	} else {
 		/* stop stream */
 		ret = imx274_write_table(imx274,
@@ -1135,6 +1134,12 @@ static int imx274_s_stream(struct v4l2_subdev *sd, int on)
 		 "%s : Done: mode = %d\n", __func__, imx274->mode_index);
 
 	mutex_unlock(&imx274->lock);
+
+	/* stearm started, now load default control values */
+	if (on) {
+		ret = imx274_load_default(imx274);
+		return ret;
+	}
 	return 0;
 
 fail:
@@ -1148,29 +1153,32 @@ static inline void imx274_calculate_frame_length_regs(imx274_reg *regs,
 						      u32 frame_length)
 {
 	regs->addr = IMX274_FRAME_LENGTH_ADDR_1;
-	regs->val = (frame_length >> 16) & 0x0f;
+	regs->val = (frame_length >> IMX274_SHIFT_16_BITS)
+			& IMX274_MASK_LSB_4_BITS;
 	(regs + 1)->addr = IMX274_FRAME_LENGTH_ADDR_2;
-	(regs + 1)->val = (frame_length >> 8) & 0xff;
+	(regs + 1)->val = (frame_length >> IMX274_SHIFT_8_BITS)
+			& IMX274_MASK_LSB_8_BITS;
 	(regs + 2)->addr = IMX274_FRAME_LENGTH_ADDR_3;
-	(regs + 2)->val = (frame_length) & 0xff;
+	(regs + 2)->val = (frame_length) & IMX274_MASK_LSB_8_BITS;
 }
 
 static inline void imx274_calculate_coarse_time_regs(imx274_reg *regs,
 						     u32 coarse_time)
 {
 	regs->addr = IMX274_COARSE_TIME_ADDR_MSB;
-	regs->val = (coarse_time >> 8) & 0x00ff;
+	regs->val = (coarse_time >> IMX274_SHIFT_8_BITS)
+		    & IMX274_MASK_LSB_8_BITS;
 	(regs + 1)->addr = IMX274_COARSE_TIME_ADDR_LSB;
-	(regs + 1)->val = (coarse_time) & 0x00ff;
+	(regs + 1)->val = (coarse_time) & IMX274_MASK_LSB_8_BITS;
 }
 
 static inline void imx274_calculate_gain_regs(imx274_reg *regs, u16 gain)
 {
 	regs->addr = IMX274_ANALOG_GAIN_ADDR_MSB;
-	regs->val = (gain >> 8) & 0x07;
+	regs->val = (gain >> IMX274_SHIFT_8_BITS) & IMX274_MASK_LSB_3_BITS;
 
 	(regs + 1)->addr = IMX274_ANALOG_GAIN_ADDR_LSB;
-	(regs + 1)->val = (gain) & 0xff;
+	(regs + 1)->val = (gain) & IMX274_MASK_LSB_8_BITS;
 }
 
 /*
@@ -1194,7 +1202,7 @@ static int imx274_get_frame_length(struct stimx274 *priv, s64 *val)
 	err |= imx274_read_reg(priv, IMX274_SVR_REG_MSB, &reg_val[1]);
 	if (err)
 		goto fail;
-	svr = (reg_val[1] << 8) + reg_val[0];
+	svr = (reg_val[1] << IMX274_SHIFT_8_BITS) + reg_val[0];
 
 	/* vmax */
 	err =  imx274_read_reg(priv, IMX274_FRAME_LENGTH_ADDR_3, &reg_val[0]);
@@ -1202,13 +1210,14 @@ static int imx274_get_frame_length(struct stimx274 *priv, s64 *val)
 	err |=  imx274_read_reg(priv, IMX274_FRAME_LENGTH_ADDR_1, &reg_val[2]);
 	if (err)
 		goto fail;
-	vmax = ((reg_val[2] & 0x07) << 16) + (reg_val[1] << 8) + reg_val[0];
+	vmax = ((reg_val[2] & IMX274_MASK_LSB_3_BITS) << IMX274_SHIFT_16_BITS)
+		+ (reg_val[1] << IMX274_SHIFT_8_BITS) + reg_val[0];
 
 	*val = vmax * (svr + 1);
 	return 0;
 
 fail:
-	v4l2_err(&priv->sd, "Get frame_length error\n");
+	v4l2_err(&priv->sd, "%s error = %d\n", __func__, err);
 	return err;
 }
 
@@ -1234,7 +1243,43 @@ static int imx274_clamp_coarse_time(struct stimx274 *priv, s64 *val,
 }
 
 /*
- * imx274_set_gain - Function called when setting analog gain
+ * imx274_set_digital gain - Function called when setting digital gain
+ * @priv: Pointer to device structure
+ * @dgain: Value of digital gain.
+ *
+ * Digital gain has only 4 steps: 1x, 2x, 4x, and 8x
+ *
+ * Return: 0 on success
+ */
+static int imx274_set_digital_gain(struct stimx274 *priv, u32 dgain)
+{
+	int ret;
+	u8 reg_val;
+
+	switch (dgain) {
+	case 1:
+		reg_val = 0;
+		break;
+	case 2:
+		reg_val = 1;
+		break;
+	case 4:
+		reg_val = 2;
+		break;
+	case 8:
+		reg_val = 3;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	ret = imx274_write_reg(priv, IMX274_DIGITAL_GAIN_REG,
+			       reg_val & IMX274_MASK_LSB_4_BITS);
+	return ret;
+}
+
+/*
+ * imx274_set_gain - Function called when setting gain
  * @priv: Pointer to device structure
  * @val: Value of gain. the real value = val << IMX274_GAIN_SHIFT;
  *
@@ -1246,39 +1291,70 @@ static int imx274_set_gain(struct stimx274 *priv, s64 val)
 {
 	imx274_reg reg_list[2];
 	int err;
-	u32 gain, gain_reg;
+	u32 gain, analog_gain, digital_gain, gain_reg;
 	int i;
 
 	gain = (u32)(val);
-	if (gain > IMX274_MAX_GAIN)
-		gain = IMX274_MAX_GAIN;
+
+	v4l2_dbg(1, debug, &priv->sd,
+		 "%s : input gain = %d.%d\n", __func__,
+		 gain >> IMX274_GAIN_SHIFT,
+		 ((gain & IMX274_GAIN_SHIFT_MASK) * 100) >> IMX274_GAIN_SHIFT);
+
+	if (gain > IMX274_MAX_DIGITAL_GAIN * IMX274_MAX_ANALOG_GAIN)
+		gain = IMX274_MAX_DIGITAL_GAIN * IMX274_MAX_ANALOG_GAIN;
 	else if (gain < IMX274_MIN_GAIN)
 		gain = IMX274_MIN_GAIN;
 
+	if (gain <= IMX274_MAX_ANALOG_GAIN)
+		digital_gain = 1;
+	else if (gain <= IMX274_MAX_ANALOG_GAIN * 2)
+		digital_gain = 2;
+	else if (gain <= IMX274_MAX_ANALOG_GAIN * 4)
+		digital_gain = 4;
+	else
+		digital_gain = IMX274_MAX_DIGITAL_GAIN;
+
+	analog_gain = gain / digital_gain;
+
+	v4l2_dbg(1, debug, &priv->sd,
+		 "%s : digital gain = %d, analog gain = %d.%d\n",
+		 __func__, digital_gain, analog_gain >> IMX274_GAIN_SHIFT,
+		 ((analog_gain & IMX274_GAIN_SHIFT_MASK) * 100)
+		 >> IMX274_GAIN_SHIFT);
+
+	err = imx274_set_digital_gain(priv, digital_gain);
+	if (err)
+		goto fail;
+
 	/* convert to register value, refer to imx274 datasheet */
-	gain_reg = (u32)2048 - (2048 << IMX274_GAIN_SHIFT) / gain;
+	gain_reg = (u32)IMX274_GAIN_CONST -
+		(IMX274_GAIN_CONST << IMX274_GAIN_SHIFT) / analog_gain;
 	if (gain_reg > IMX274_GAIN_REG_MAX)
 		gain_reg = IMX274_GAIN_REG_MAX;
 
 	imx274_calculate_gain_regs(reg_list, (u16)gain_reg);
 
-	for (i = 0; i < 2; i++) {
-		err = imx274_write_reg(priv, reg_list[i].addr, reg_list[i].val);
+	for (i = 0; i < ARRAY_SIZE(reg_list); i++) {
+		err = imx274_write_reg(priv, reg_list[i].addr,
+				       reg_list[i].val);
 		if (err)
 			goto fail;
 	}
 
 	/* convert register value back to gain value */
-	priv->ctrls.gain->val = (2048 << IMX274_GAIN_SHIFT) / (2048 - gain_reg);
+	priv->ctrls.gain->val = (IMX274_GAIN_CONST << IMX274_GAIN_SHIFT)
+				/ (IMX274_GAIN_CONST - gain_reg)
+				* digital_gain;
 
 	v4l2_dbg(1, debug, &priv->sd,
-		 "%s : GAIN control success, new gain = %d\n",
-		 __func__, priv->ctrls.gain->val);
+		 "%s : GAIN control success, gain_reg = %d, new gain = %d\n",
+		 __func__, gain_reg, priv->ctrls.gain->val);
 
 	return 0;
 
 fail:
-	v4l2_err(&priv->sd, "GAIN control error\n");
+	v4l2_err(&priv->sd, "%s error = %d\n", __func__, err);
 	return err;
 }
 
@@ -1309,8 +1385,9 @@ static int imx274_set_coarse_time(struct stimx274 *priv, s64 *val)
 	imx274_calculate_coarse_time_regs(reg_list, coarse_time);
 
 	/* write to SHR registers */
-	for (i = 0; i < 2; i++) {
-		err = imx274_write_reg(priv, reg_list[i].addr, reg_list[i].val);
+	for (i = 0; i < ARRAY_SIZE(reg_list); i++) {
+		err = imx274_write_reg(priv, reg_list[i].addr,
+				       reg_list[i].val);
 		if (err)
 			goto fail;
 	}
@@ -1320,14 +1397,14 @@ static int imx274_set_coarse_time(struct stimx274 *priv, s64 *val)
 	return 0;
 
 fail:
-	v4l2_err(&priv->sd, "EXPOSURE control error\n");
+	v4l2_err(&priv->sd, "%s error = %d\n", __func__, err);
 	return err;
 }
 
 /*
  * imx274_set_exposure - Function called when setting exposure time
  * @priv: Pointer to device structure
- * @val: Variable for exposure time
+ * @val: Variable for exposure time, in the unit of micro-second
  *
  * Set exposure time based on input value.
  *
@@ -1344,12 +1421,22 @@ static int imx274_set_exposure(struct stimx274 *priv, s64 val)
 
 	/* obtain HMAX value */
 	err = imx274_read_reg(priv, IMX274_HMAX_REG_LSB, &reg_val[0]);
-	err |= imx274_read_reg(priv, IMX274_HMAX_REG_MSB, &reg_val[1]);
 	if (err)
-		return err;
-	hmax = (reg_val[1] << 8) + reg_val[0];
+		goto fail;
+	err = imx274_read_reg(priv, IMX274_HMAX_REG_MSB, &reg_val[1]);
+	if (err)
+		goto fail;
+	hmax = (reg_val[1] << IMX274_SHIFT_8_BITS) + reg_val[0];
+	if (hmax == 0) {
+		err = -EINVAL;
+		goto fail;
+	}
 
-	coarse_time = IMX274_PIXCLK_CONST1 * val / IMX274_PIXCLK_CONST2 / hmax;
+	coarse_time = (IMX274_PIXCLK_CONST1 * val / IMX274_PIXCLK_CONST2
+			- nocpiop[priv->mode_index]) / hmax;
+
+	if (coarse_time < 0)
+		coarse_time = 0;
 
 	/* step 2: convert exposure_time into SHR value */
 
@@ -1361,12 +1448,13 @@ static int imx274_set_exposure(struct stimx274 *priv, s64 val)
 	v4l2_dbg(1, debug, &priv->sd,
 		 "%s : EXPOSURE control success\n", __func__);
 
-	priv->ctrls.exposure->val = coarse_time * IMX274_PIXCLK_CONST2 * hmax
-						/ IMX274_PIXCLK_CONST1;
+	priv->ctrls.exposure->val =
+			(coarse_time * hmax + nocpiop[priv->mode_index])
+			* IMX274_PIXCLK_CONST2 / IMX274_PIXCLK_CONST1;
 	return 0;
 
 fail:
-	v4l2_err(&priv->sd, "EXPOSURE control error\n");
+	v4l2_err(&priv->sd, "%s error = %d\n", __func__, err);
 	return err;
 }
 
@@ -1386,16 +1474,15 @@ static int imx274_set_vflip(struct stimx274 *priv, int val)
 	int err;
 
 	err = imx274_write_reg(priv, IMX274_VFLIP_REG, val);
-	if (err)
-		goto fail;
+	if (err) {
+		v4l2_err(&priv->sd, "VFILP control error\n");
+		return err;
+	}
 
-	v4l2_dbg(1, debug, &priv->sd, "%s : VFLIP control success\n", __func__);
+	v4l2_dbg(1, debug, &priv->sd,
+		 "%s : VFLIP control success\n", __func__);
 	priv->ctrls.vflip->val = val;
 	return 0;
-
-fail:
-	v4l2_err(&priv->sd, "VFILP control error\n");
-	return err;
 }
 
 /*
@@ -1405,35 +1492,19 @@ fail:
  *
  * Set to different test patterns based on input value.
  *
- * To come back from test pattern to live video, have to do reset
- *    and restart stream, then load default control values
- *
  * Return: 0 on success
  */
 static int imx274_set_test_pattern(struct stimx274 *priv, int val)
 {
 	int err = 0;
 
-	switch (val) {
-	case TEST_PATTERN_DISABLED:
+	if (val == TEST_PATTERN_DISABLED) {
 		err = imx274_write_table(priv, imx274_tp_disabled);
-		/* reset sensor */
-		imx274_reset(priv, 1);
-		/* restart stream */
-		err = imx274_start_stream(priv, priv->mode_index);
-		if (!err)
-			err = imx274_load_default(priv);
-		break;
-
-	case TEST_PATTERN_GRAY_IMAGE:
-		err = imx274_write_table(priv, imx274_tp_gray_image);
-		break;
-
-	case TEST_PATTERN_COLOR_BARS:
-		err = imx274_write_table(priv, imx274_tp_color_bars);
-		break;
-
-	default:
+	} else if (val <= TEST_PATTERN_V_COLOR_BARS) {
+		imx274_tp_regs[0].val = val - 1;
+		err = imx274_write_table(priv, imx274_tp_regs);
+	} else {
+		v4l2_err(&priv->sd, "TEST PATTERN control our of range\n");
 		return -EINVAL;
 	}
 
@@ -1447,7 +1518,7 @@ static int imx274_set_test_pattern(struct stimx274 *priv, int val)
 	return 0;
 
 fail:
-	v4l2_err(&priv->sd, "TEST PATTERN control error\n");
+	v4l2_err(&priv->sd, "%s error = %d\n", __func__, err);
 	return err;
 }
 
@@ -1473,7 +1544,7 @@ static int imx274_set_frame_length(struct stimx274 *priv, u32 val)
 	frame_length = (u32)val;
 
 	imx274_calculate_frame_length_regs(reg_list, frame_length);
-	for (i = 0; i < 3; i++) {
+	for (i = 0; i < ARRAY_SIZE(reg_list); i++) {
 		err = imx274_write_reg(priv, reg_list[i].addr,
 				       reg_list[i].val);
 		if (err)
@@ -1483,7 +1554,7 @@ static int imx274_set_frame_length(struct stimx274 *priv, u32 val)
 	return 0;
 
 fail:
-	v4l2_err(&priv->sd, "FRAME_LENGTH control error\n");
+	v4l2_err(&priv->sd, "%s error = %d\n", __func__, err);
 	return err;
 }
 
@@ -1515,7 +1586,7 @@ static int __imx274_set_frame_interval(struct stimx274 *priv,
 	err |= imx274_read_reg(priv, IMX274_SVR_REG_MSB, &reg_val[1]);
 	if (err)
 		goto fail;
-	svr = (reg_val[1] << 8) + reg_val[0];
+	svr = (reg_val[1] << IMX274_SHIFT_8_BITS) + reg_val[0];
 	v4l2_dbg(1, debug, &priv->sd,
 		 "%s : register SVR = %dd\n", __func__, svr);
 
@@ -1524,7 +1595,7 @@ static int __imx274_set_frame_interval(struct stimx274 *priv,
 	err |= imx274_read_reg(priv, IMX274_HMAX_REG_MSB, &reg_val[1]);
 	if (err)
 		goto fail;
-	hmax = (reg_val[1] << 8) + reg_val[0];
+	hmax = (reg_val[1] << IMX274_SHIFT_8_BITS) + reg_val[0];
 	v4l2_dbg(1, debug, &priv->sd,
 		 "%s : register HMAX = %dd\n", __func__, hmax);
 
@@ -1539,7 +1610,7 @@ static int __imx274_set_frame_interval(struct stimx274 *priv,
 	return 0;
 
 fail:
-	v4l2_err(&priv->sd, "FRAME_RATE control error\n");
+	v4l2_err(&priv->sd, "%s error = %d\n", __func__, err);
 	return err;
 }
 
@@ -1596,7 +1667,6 @@ static const struct v4l2_subdev_ops imx274_subdev_ops = {
 };
 
 static const struct v4l2_ctrl_ops imx274_ctrl_ops = {
-	.g_volatile_ctrl = imx274_g_volatile_ctrl,
 	.s_ctrl	= imx274_s_ctrl,
 };
 
@@ -1673,25 +1743,26 @@ static int imx274_probe(struct i2c_client *client,
 	}
 
 	/* add new controls */
+	imx274->ctrls.test_pattern = v4l2_ctrl_new_std_menu_items(
+		&imx274->ctrls.handler, &imx274_ctrl_ops,
+		V4L2_CID_TEST_PATTERN,
+		ARRAY_SIZE(tp_qmenu) - 1, 0, 0, tp_qmenu);
+
 	imx274->ctrls.gain = v4l2_ctrl_new_std(&imx274->ctrls.handler,
 		&imx274_ctrl_ops,
 		V4L2_CID_GAIN, IMX274_MIN_GAIN,
-		IMX274_MAX_GAIN, 1, IMX274_DEF_GAIN);
+		IMX274_MAX_DIGITAL_GAIN * IMX274_MAX_ANALOG_GAIN, 1,
+		IMX274_DEF_GAIN);
 
 	imx274->ctrls.exposure = v4l2_ctrl_new_std(&imx274->ctrls.handler,
 		&imx274_ctrl_ops,
 		V4L2_CID_EXPOSURE, IMX274_MIN_EXPOSURE_TIME,
-		1000000 / IMX274_MIN_FRAME_RATE, 1,
+		1000000 / IMX274_DEF_FRAME_RATE, 1,
 		1000000 / IMX274_DEF_FRAME_RATE);
 
 	imx274->ctrls.vflip = v4l2_ctrl_new_std(&imx274->ctrls.handler,
 		&imx274_ctrl_ops,
 		V4L2_CID_VFLIP, 0, 1, 1, 0);
-
-	imx274->ctrls.test_pattern = v4l2_ctrl_new_std_menu_items(
-		&imx274->ctrls.handler, &imx274_ctrl_ops,
-		V4L2_CID_TEST_PATTERN,
-		ARRAY_SIZE(tp_qmenu) - 1, 0, 0, tp_qmenu);
 
 	imx274->sd.ctrl_handler = &imx274->ctrls.handler;
 	if (imx274->ctrls.handler.error) {
