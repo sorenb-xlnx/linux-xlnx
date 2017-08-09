@@ -16,6 +16,17 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		ion_dma_region: ion-dma-heap {
+			size = <0 0>; /* is using default CMA pool anyways */
+			linux,cma-default;
+		};
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -335,6 +346,14 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
+
+		ion {
+			compatible = "xlnx,zynqmp-ion", "linux,ion";
+			ion-dma-heap {
+				compatible = "xlnx,zynqmp-dma-heap", "linux,ion-heap-dmadma";
+				memory-region = <&ion_dma_region>;
+			};
+		};
 
 		can0: can@ff060000 {
 			compatible = "xlnx,zynq-can-1.0";
