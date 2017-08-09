@@ -1,4 +1,4 @@
-/include/ "trd/system-conf-override.dtsi"
+#include "system-conf-override.dtsi"
 
 /* Define configuration */
 

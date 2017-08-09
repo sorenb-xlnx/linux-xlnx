@@ -6,10 +6,10 @@
 
 
 /dts-v1/;
-/include/ "zynqmp.dtsi"
-/include/ "zynqmp-clk-ccf.dtsi"
-/include/ "trd/zcu102-revb.dtsi"
-/include/ "trd/pcw.dtsi"
+#include "zynqmp.dtsi"
+#include "zynqmp-clk-ccf.dtsi"
+#include "trd/zcu102-revb.dtsi"
+#include "trd/pcw.dtsi"
 / {
 	chosen {
 		bootargs = "earlycon clk_ignore_unused";
