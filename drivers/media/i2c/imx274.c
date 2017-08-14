@@ -210,19 +210,13 @@ static const imx274_reg imx274_mode1_3840x2160_raw10[] = {
 	{0x3005, 0x01},
 	{0x3006, 0x00},
 	{0x3007, 0x02},
-	{0x300C, 0xff}, /* SHR */
-	{0x300D, 0x00}, /* SHR */
-	{0x300E, 0x00}, /* SVR, 0 */
-	{0x300F, 0x00}, /* SVR */
+
 	{0x3018, 0xA2}, /* output XVS, HVS */
-	{0x301A, 0x00},
+
 	{0x306B, 0x05},
 	{0x30E2, 0x01},
 	{0x30F6, 0x07}, /* HMAX, 263 */
 	{0x30F7, 0x01}, /* HMAX */
-	{0x30F8, 0xC6}, /* VMAX, 4550 */
-	{0x30F9, 0x11}, /* VMAX */
-	{0x30FA, 0x00}, /* VMAX */
 
 	{0x30dd, 0x01}, /* crop to 2160 */
 	{0x30de, 0x06},
@@ -274,20 +268,14 @@ static const imx274_reg imx274_mode3_1920x1080_raw10[] = {
 	{0x3005, 0x21},
 	{0x3006, 0x00},
 	{0x3007, 0x11},
-	{0x300C, 0xff}, /* SHR */
-	{0x300D, 0x00}, /* SHR */
-	{0x300E, 0x01}, /* SVR , 0x00: 120fps; 0x01: 60fps */
-	{0x300F, 0x00}, /* SVR */
+
 	{0x3018, 0xA2}, /* output XVS, HVS */
-	{0x301A, 0x00},
+
 	{0x306B, 0x05},
 	{0x30E2, 0x02},
 
 	{0x30F6, 0x04}, /* HMAX, 260 */
 	{0x30F7, 0x01}, /* HMAX */
-	{0x30F8, 0x06}, /* VMAX, 2310 */
-	{0x30F9, 0x09}, /* VMAX */
-	{0x30FA, 0x00}, /* VMAX */
 
 	{0x30dd, 0x01}, /* to crop to 1920x1080 */
 	{0x30de, 0x05},
@@ -339,21 +327,13 @@ static const imx274_reg imx274_mode5_1280x720_raw10[] = {
 	{0x3006, 0x00},
 	{0x3007, 0x09},
 
-	{0x300C, 0xff}, /* SHR */
-	{0x300D, 0x00}, /* SHR */
-	{0x300E, 0x01}, /* SVR , 0x00: 120fps; 0x01: 60fps */
-	{0x300F, 0x00}, /* SVR */
 	{0x3018, 0xA2}, /* output XVS, HVS */
 
-	{0x301A, 0x00},
 	{0x306B, 0x05},
 	{0x30E2, 0x03},
 
 	{0x30F6, 0x04}, /* HMAX, 260 */
 	{0x30F7, 0x01}, /* HMAX */
-	{0x30F8, 0x06}, /* VMAX, 2310 */
-	{0x30F9, 0x09}, /* VMAX */
-	{0x30FA, 0x00}, /* VMAX */
 
 	{0x30DD, 0x01},
 	{0x30DE, 0x07},
@@ -1134,12 +1114,6 @@ static int imx274_s_stream(struct v4l2_subdev *sd, int on)
 		 "%s : Done: mode = %d\n", __func__, imx274->mode_index);
 
 	mutex_unlock(&imx274->lock);
-
-	/* stearm started, now load default control values */
-	if (on) {
-		ret = imx274_load_default(imx274);
-		return ret;
-	}
 	return 0;
 
 fail:
@@ -1796,6 +1770,11 @@ static int imx274_probe(struct i2c_client *client,
 			__func__, ret);
 		return ret;
 	}
+
+	/* load default control values */
+	ret = imx274_load_default(imx274);
+	if (ret)
+		return ret;
 
 	v4l2_info(sd, "imx274 : imx274 probe Success !\n");
 	return 0;
