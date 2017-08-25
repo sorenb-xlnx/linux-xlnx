@@ -1,10 +1,20 @@
 #include <dt-bindings/media/xilinx-vip.h>
 
 &amba {
+	/* This is a dummy node. The actual clock is coupled to either
+	 * DP or HDMI Tx and selected via a gpio controlled clock mux
+	 * from user space.
+	 */
+	tpg_pixel_clk: tpg_pixel_clk {
+                compatible = "fixed-clock";
+                #clock-cells = <0>;
+                clock-frequency = <297000000>;
+        };
+
 	vtc_1: vtc@a3c20000 {
 		compatible = "xlnx,v-tc-6.1";
 		reg = <0x0 0xa3c20000 0x0 0x10000>;
-		clocks = <&si5324 0>;
+		clocks = <&tpg_pixel_clk>;
 		xlnx,generator;
 	};
 
@@ -34,7 +44,7 @@
 	};
 
 	fb_wr_tpg: fb_wr@b0050000 {
-		compatible = "xlnx,axi-frmbuf-wr-1.00.a";
+		compatible = "xlnx,v-frmbuf-wr-2.0", "xlnx,axi-frmbuf-wr", "xlnx,axi-frmbuf-wr-1.00.a";
 		reg = <0x0 0xb0050000 0x0 0x10000>;
 		#dma-cells = <1>;
 		interrupt-parent = <&gic>;
